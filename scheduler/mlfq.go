@@ -1,5 +1,10 @@
 package main
 
+/*
+* go run mlfq.go -h
+* Ex: go run mlfq.go -seed 10 -stats -maxLen 20
+*/
+
 import (
 	"fmt"
 	"flag"
@@ -99,7 +104,7 @@ func commandInit(conf *configParams) {
 	}
 }
 
-// Basically mimics proc_stat
+// Basically mimics task_struct
 type jobStat struct {
 	currPri int
 	ticksLeft int
@@ -109,6 +114,9 @@ type jobStat struct {
 	ioFreq int
 	doingIO bool
 	firstRun int
+	pid int
+	allotLeft int
+	endTime int
 }
 
 type events struct {
@@ -124,7 +132,6 @@ func main() {
 	ioDone := make(map[int][]events)
 	// Store info about job
 	jobs := make([]jobStat, 0)
-	fmt.Println(conf)
 
 	// High queue
 	hiQueue := conf.numQueues-1
@@ -132,14 +139,19 @@ func main() {
 	rand.Seed(int64(conf.seed))
 
 	for i:=0; i< conf.numJobs; i++ {
+		tmpTime := rand.Intn(conf.maxLen)
 		jobInfo := jobStat{
 			currPri: hiQueue,
 			ticksLeft: conf.quantumList[hiQueue],
 			startTime: 0,
-			runTime: rand.Intn(conf.maxLen),
+			runTime: tmpTime,
+			timeLeft: tmpTime,
 			ioFreq: rand.Intn(conf.maxio),
 			doingIO: false,
-			firstRun: -1 }
+			firstRun: -1,
+			pid: i, 
+			allotLeft: conf.allotmentList[hiQueue], 
+			endTime: 1e6 } // some large number
 		jobs = append(jobs, jobInfo)
 		ioDone[0] = append(ioDone[0], events{jobInfo, "JOB BEGINS"})
 	}
@@ -165,7 +177,7 @@ func main() {
 		// Check priority boost
 		if conf.boost > 0 && currTime !=0 {
 			if currTime % conf.boost == 0{
-				fmt.Printf("[time %d] BOOST (every %d)", currTime, conf.boost)
+				fmt.Printf("[time %d] BOOST (every %d)\n", currTime, conf.boost)
 				// Since criteria met, move all jobs to high queue
 				for i := 0; i < (conf.numQueues-1); i++ {
 					for i,j := range queues[i] {
@@ -196,7 +208,7 @@ func main() {
 			for i,v := range ioDone[currTime] {
 				q := jobs[i].currPri
 				jobs[i].doingIO = false
-				fmt.Printf("[time %d] %v by JOB %d\n", currTime, v.msg, i)
+				fmt.Printf("[ time %d ] %v by JOB %d\n", currTime, v.msg, i)
 				if conf.ioBump == false || v.msg == "JOB BEGINS" {
 					queues[q] = append(queues[q], v.jobInfo)
 				} else {
@@ -209,12 +221,143 @@ func main() {
 		// Now find the highest priority job
 		currQueue := findQueue(hiQueue, queues)
 		if currQueue == -1 {
-			fmt.Printf("[time %d] IDLE\n", currTime)
+			fmt.Printf("[ time %d ] IDLE\n", currTime)
 			currTime++
 			continue
 		}
 
-		// There is at least one runnable job
+		// There is at least one runnable job at this point
+		currJob := queues[currQueue][0]
+		// fmt.Println(queues)
+		// fmt.Println(jobs)
+		// fmt.Println(currJob)
+		// if jobs[currJob.pid].currPri != currQueue {
+		// 	fmt.Printf("Current job [%d]'s priority [%d] does not match currQueue[%d]\n", currJob.pid, jobs[currJob.pid].currPri, currQueue)
+		// 	os.Exit(1)
+		// }
+
+		jobs[currJob.pid].timeLeft -= 1
+		jobs[currJob.pid].ticksLeft -=1
+
+		if jobs[currJob.pid].firstRun == -1 {
+			jobs[currJob.pid].firstRun = currTime
+		}
+
+		runTime := jobs[currJob.pid].runTime
+		ioFreq := jobs[currJob.pid].ioFreq
+		ticksLeft := jobs[currJob.pid].ticksLeft
+		allotLeft := jobs[currJob.pid].allotLeft
+		timeLeft := jobs[currJob.pid].timeLeft
+		fmt.Printf("[ time %d ] RUN JOB %d at PRIORITY %d [ TICKS %d ALLOT %d TIME %d (of %d) ]\n",
+		currTime,
+		currJob.pid,
+		currQueue,
+		ticksLeft,
+		allotLeft,
+		timeLeft,
+		runTime)
+
+		if timeLeft < 0 {
+			fmt.Println("TIME CAN BE LESS THAN 0!!")
+			os.Exit(1)
+		}
+
+		// Update time -- This will be a timer interupt in real life?
+		currTime += 1
+
+		// Check for job completion
+		if timeLeft == 0 {
+			fmt.Printf("[ time %d ] FINISHED JOB %d\n", currTime, currJob.pid)
+			finishedJobs++
+			jobs[currJob.pid].endTime = currTime
+			
+			// pop completed job
+			if queues[currQueue][0].pid != currJob.pid {
+				panic("Currentjob serving and finished job are not the same")
+			}
+			//queues[currQueue] = queues[currQueue][:len(queues[currQueue])-1]
+			queues[currQueue] = queues[currQueue][1:]
+			continue
+		}
+
+		var descheduledJob jobStat
+		// Check for IO
+		issuedIO := false
+		if ioFreq > 0 && ((runTime - timeLeft) % ioFreq) == 0 {
+			// Do IO
+			fmt.Printf("[ time %d ] IO_START by JOB %d\n", currTime, currJob.pid)
+			issuedIO = true
+			descheduledJob = queues[currQueue][0]
+			//queues[currQueue] = queues[currQueue][:len(queues[currQueue])-1] // poping IO last job
+			queues[currQueue] = queues[currQueue][1:] // poping IO first job
+			if descheduledJob.pid != currJob.pid {
+				panic("Descheduling IO job which is not supposed to be served")
+			}
+			jobs[currJob.pid].doingIO = true
+			// Reset the tick if staying at same level (-S)
+			if conf.stay == true {
+				jobs[currJob.pid].ticksLeft = conf.quantumList[currQueue]
+				jobs[currJob.pid].allotLeft = conf.allotmentList[currQueue]
+			}
+			// Add to io queue
+			futureTime := currTime + conf.ioTime
+			ioDone[futureTime] = append(ioDone[futureTime], events{currJob, "IO_DONE"})
+		}
+		
+		// Quantum ending
+		if ticksLeft == 0 {
+			if issuedIO == false {
+				// No I/O has been issued so pop from queue
+				descheduledJob = queues[currQueue][0]
+				//queues[currQueue] = queues[currQueue][:len(queues[currQueue])-1]
+				queues[currQueue] = queues[currQueue][1:]
+				if descheduledJob.pid != currJob.pid {
+					panic("Descheduling job which is not supposed to be served")
+				}
+			}
+			jobs[currJob.pid].allotLeft = jobs[currJob.pid].allotLeft - 1
+
+			if jobs[currJob.pid].allotLeft == 0 {
+				// job is DONE is this level so push it a level down
+				if currQueue > 0 {
+					jobs[currJob.pid].currPri = currQueue - 1
+					jobs[currJob.pid].ticksLeft = conf.quantumList[currQueue - 1]
+					jobs[currJob.pid].allotLeft = conf.allotmentList[currQueue -1]
+					if issuedIO == false {
+						queues[currQueue-1] = append(queues[currQueue-1], currJob)
+					}
+				} else {
+					jobs[currJob.pid].ticksLeft = conf.quantumList[currQueue]
+					jobs[currJob.pid].allotLeft = conf.allotmentList[currQueue]
+					if issuedIO == false {
+						queues[currQueue] = append(queues[currQueue], currJob)
+					}
+				}
+			} else {
+				// Job has more time left in this queue level so put in the end
+				jobs[currJob.pid].ticksLeft = conf.quantumList[currQueue]
+				if issuedIO == false {
+					queues[currQueue] = append(queues[currQueue], currJob)
+				}
+			}
+		}
+	}
+
+	if conf.stats {
+		fmt.Printf("-------------------------------------\n")
+		fmt.Println("Final statistics: ")
+		responseSum := 0
+		turnaroundSum := 0
+		for i,v := range jobs {
+			response := v.firstRun - v.startTime
+			turnaround := v.endTime - v.startTime
+			fmt.Printf("JOB %d [START_TIME %d] [RESPONSE %d] [TURNAROUND %d]\n", 
+					  i, v.startTime, response, turnaround)
+			responseSum += response
+			turnaroundSum += turnaround
+		}
+		fmt.Printf("Average: ResponseTime - %2.f, TurnAroundTime - %.2f\n",
+		float64(responseSum/conf.numJobs), float64(turnaroundSum/conf.numJobs))
 	}
 }
 
@@ -249,6 +392,7 @@ func findQueue(hiQueue int, queues map[int][]jobStat) int {
 		if len(queues[q]) > 0 {
 			return q
 		}
+		q -= 1
 	}
 	if len(queues[0]) > 0 {
 		return 0
