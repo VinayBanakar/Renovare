@@ -1,7 +1,10 @@
 TODO:
 * Ticket inflation mechanism amongst untrusted peers?
 * Current Ticket tranfer methods used in distributed systems?
-
+* Should OS schedulers (which are predominantly fair share) change to cater special workloads like HPC/ML? if so how?
+* How fast should the timer interrupt (HZ) be based on the kind of workload (especially with lot of VMs)? (100-1000) power saving vs performance https://lwn.net/Articles/145973/
+>> See hrtimers https://www.kernel.org/doc/Documentation/timers/hrtimers.txt and dynamic ticks (allows system to run at full HZ during load, and skips ticks when possible while idle).
+* A tool to interpret meaningful stuff from /proc/sched_debug
 
 * MLFQ in Go
 * Lottery/Stride scheduling in Go?
@@ -10,8 +13,8 @@ TODO:
 
 
 ## Random
-Okay I totally don't understand this; My timer interrupt frequency (CLK_TCK) is 300HZ which means my jiffies global count for the core will be incremented every 30 ms, but increment of number of interrupts every 1s in /proc/interrupt is not equal to 100.
-
+Okay I totally don't understand this; My timer interrupt frequency (CLK_TCK) is 300HZ which means my jiffies global count for the core will be incremented every 3 ms, but increment of number of interrupts every 1s in /proc/interrupt is not equal to 300.
+Also getconf CLK_TCK is not same as zcat /proc/config.gz | grep 'CONFIG_HZ', are these two variables representing something else all together?
 >> Depending on other kernel parameters (tickless and friends), the kernel won't schedule a tick it doesn't need - so if there's one process that's CPU bound while all the other processes are being driven by I/O not by the tick, the kernel may decide that the CPU bound job can run up to 750 milliseconds, and schedule just one tick 0.75 seconds from now and skip all the intervening ticks.
 
 ## adaptive-ticks CPUs
@@ -26,3 +29,7 @@ For global scheduling info:
 For thread level scheduling info:
 /proc/PID/sched   /proc/PID/schedstat
 /linux/Documentation/scheduler/sched-stats.rst
+
+
+# Processor power states
+https://metebalci.com/blog/a-minimum-complete-tutorial-of-cpu-power-management-c-states-and-p-states/
