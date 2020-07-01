@@ -1,5 +1,5 @@
 
-###[The Case for Learned Index Structures](https://www.cl.cam.ac.uk/~ey204/teaching/ACS/R244_2018_2019/papers/Kraska_SIGMOD_2018.pdf)
+### [The Case for Learned Index Structures](https://www.cl.cam.ac.uk/~ey204/teaching/ACS/R244_2018_2019/papers/Kraska_SIGMOD_2018.pdf), [repo](https://github.com/learnedsystems/RMI)
 
 B+ trees are basically regression trees (ML models), which 'predicts' the value given a key in O(log n). Indexing all keys is no efficient hence in a continuous series of data split logically by page size, only the beginning of the page is indexed. Hence, for a given key the value will be guaranteed to be between min-error of 0 and max-error of the page size. So this can be supplanted by a ML model (MLM) as long as it provides similar guarantees which gives O(1). For a new key B trees needs to be rebalanced, like MLM needs to be retrained.
 
@@ -10,7 +10,7 @@ They show a model can be faster for a point query on 100M keys (with a page size
 The distribution of the data can be modeled as CDFs. To validate this, they initially build a 2 layer (32 neurons/layer) network using ReLU with timestamps as input features and positions in sorted arrays as labels. But they realized,
 1. Tensorflow and python is designed for large models, so this performed worse than decision trees (B or Binary)
 2. Models efficiently approximate the general shape of CDF but have problems at individual level. NNs require significantly more CPU and space to reduce error from a narrow scope (until this scope its fine) to an individual position (the last mile). In contrast, trees overfit the data naturally.
-3. Trees keep their nodes in cache making computation efficient, but NNs require large number of multiplications to calculate weight.
+3. Trees keep their nodes in cache making computation efficient, but NNs require large number of multiplications to calculate weight.  
 To overcome these, they introduce LIF and RMI:  
 **Learning Index Framework** automatically generates C++ index structures by extracting weights from a learnt model (NN) so that Tensorflow need not be used for inference (to avoid its instrumentation overheads). LIF can be further used to optimize them based on different index configs (ML models, page size and search strategies) but these introduce additional overheads. Besides from auto vectorization by the compiler no special SIMD [intrinsics](https://stackoverflow.com/a/2268599/11338006) are used.  
 **Recursive Model Index**: Models perform better when the ratio of search space to filter space is small (With 2 layers, 100M -> 10K and 10K -> 100 is easier compared to 100M -> 100). Based on this observation, they propose a recursive regression model. That is, a hierarchy of models, where at each stage the model takes key as the input and based on it picks the next model, until final stage predicts the position. Today, they train it stage wise. Essentially, each model is responsible for certain area (need not be equally divided) in the key-space to make a better prediction. Read sec. **3.2** for advantages of this approach.  
@@ -29,15 +29,27 @@ General convention is that binary search or scanning for records for small paylo
 **Future work includes**: Other ML models, Multi dimensional models, learned algorithms and GPU/TPUs.  
 _Refer to Appendix D_  
 Although, they show inserting key in middle is O(1). It was not clear how data is moved to reserve space for the new item or what the cost of it would be.  
-> D.2 **_With more complex models, it might actually be possible to learn the actual pointers of the pages. Especially if a filesystem is used to determine the page on disk with a systematic numbering of the blocks on disk (e.g., block1,...,block100) the learning process can remain the same._**  
+<details>
+    <summary>Further discussion about learned inserts</summary>
+
+> http://databasearchitects.blogspot.com/2017/12/the-case-for-b-tree-index-structures.html _For updates, the difference between BTrees and learned indexes is that the available space is more intelligently spread. This allows for much more O(1) inserts. Plus it can be really O(1), as in the case of the BTree you still need to search the key, which is O(log n). The idea also better separates the processes of inserting and adding space. For example, you could insert space during night for the best performance during the day. But you are right, if the distribution shifts, this is not yet as well-understood and a great future research direction (Alkis and I had plenty of discussions about it)_. **and** _The more interesting thing is, that we can use online learning to update our index in a way btrees may not be able to for shifting distributions. Again much more research is needed here to understand that better._ **and** _For inserts, yes learned indexes and B-Trees can leverage many of the same techniques (such as spacing the underlying data), but learned indexes also provide some new avenues for updates. Because B-Trees grow with the size of the data, we need to change the branching structure as the data grows (in addition to shifting around the underlying data). Learned indexes, on the contrary, may not need to actually change as we insert data (the underlying data of course will need to change). That is, if the data comes from the same distribution, the model will still be accurate and no updates to the model are needed. Even if the data distribution changes, the model can update through online learning or simple updates to sufficient statistics (as in linear models). This opens up new opportunities how to adjust an index for data growth and changes in the distribution Again, we find that the cost of updates here corresponds to model (and thus data distribution) complexity and not size of the data. Of course, the paper focuses on lookups not inserts, and we feel there are many open, interesting questions to demonstrate how to best use learned indexes with workloads with many updates/inserts. Overall, for both lookups and inserts, learned indexes offer a broader set of design choices in building index structures._
+</details>  
+
+**D.2**
+>**_With more complex models, it might actually be possible to learn the actual pointers of the pages. Especially if a filesystem is used to determine the page on disk with a systematic numbering of the blocks on disk (e.g., block1,...,block100) the learning process can remain the same._**  Perhaps a primer: [Designing Distributed Tree-based Index Structures for Fast RDMA-capable Networks](https://dl-acm-org.ezproxy.library.wisc.edu/doi/pdf/10.1145/3299869.3300081)  
+
+[SOSD: A Benchmark for Learned Indexes](https://learned.systems/papers/sosd.pdf),[repo](https://github.com/learnedsystems/SOSD)
 
 Why RRM when you can increase the layers of NN to improve accuracy?  
-Complex models will increase the number of multiplications and additions (expensive to train and execute)
+Complex models will increase the number of multiplications and additions (expensive to train and execute) and RRM provides flexibility for models/trees as each level.
+
+* Index updates in the order of seconds to minutes (potentially use LSM for inserts (NN for reads) and retrain NN during compactions?)
+* Could have talked about crash logic, what happens to NN? are only weights dumped to a file [but really not in scope for the paper]
 ***
 
 MLM to supplant route tables??  
 Routing tables are usually have 64k to 100k or more entries, and incoming packet destination address is ANDed with every entry to identify the right interface the packet to be sent to. If nothing matches send it to default.
-This is O(N) we could make it O(1) with NN classifiers where interface are the labels and destination address is the feature. Probably modern ASICs do this fast but this approach could help commodity switches.
+This is O(N) we could make it O(1) with NN classifiers where interface are the labels and destination address is the feature. Probably modern ASICs do this fast but this approach could help commodity switches. Or especially take advantages of GPU/TPU improvements.
 
 The mystery of Triquetra:  
 Read and writes should be sequential, data should be sorted for range queries but input data is not ordered. While doing all of this the index shouldn't take a lot (more than the data itself) of memory.
