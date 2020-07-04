@@ -88,7 +88,9 @@ So buffer the ops until memory/nodes are available in memory, once it is do all 
 Operations are buffered in internal nodes, they are initially added to root node and will be pushed down to internal nodes (which will be eventually fetched from disk).
 > Writes always go through root node though which can cause contention on multi threaded workload. LSM in general are more flexible, for example if you want to improve read amp then perform
 more compactions and reduce layers/runs per layer and when you want to reduce write amp delay compactions as much as possible (But don't let compactions stale). 
-> Dynamically Modify level merge multiplier bigger for reads and smaller for writes ^
+> Dynamically Modify level merge multiplier bigger for reads and smaller for writes ^  
+
+> **_(LSM-based Storage Techniques: A Survey)[https://arxiv.org/abs/1812.07527_**]**_  
 
 Does NVDIMM also have flash like GC/page granularity behavior?
 
