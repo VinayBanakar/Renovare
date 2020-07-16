@@ -62,7 +62,7 @@ lmdb -  https://www.youtube.com/watch?v=tEa5sAh-kVk&index=3&list=PLSE8ODhjZXjake
 * If your workload is random-writes heavy, choose lsm
 * If your workload is serial-writes heavy, both are similar
 * If your workload is read-heavy (random or not) go for lmdb
-* http://www.lmdb.tech/bench/ondisk/
+* http://www.lmdb.tech/bench/ondisk/  
 However, LMDB maybe bad for write intensive workoads: (with a grain of salt)
 - LMDB by default provides full ACID semantics, which means that after every key-value write committed, 
 it needs to sync to disk. Apparently if this happens tens of times per second, your system performance will suffer.
@@ -70,13 +70,13 @@ it needs to sync to disk. Apparently if this happens tens of times per second, y
 But a little known fact is that you lose all of ACID, meaning that a system crash can cause total loss of the database. Only use `MDB_NOSYNC` if your data is expendable.
 - lmdb lacks a WAL so might not be good for write intensive loads (it uses shadow paging though to avoid in-place updates) 
 
-SILK: Spikes in Log-Structured Merge Key-Value - They observed 99th percentile latency spiking upto 1 sec in write workloads (although they finish in memory/memtable). The spike is due 
+**SILK: Spikes in Log-Structured Merge Key-Valu** - They observed 99th percentile latency spiking upto 1 sec in write workloads (although they finish in memory/memtable). The spike is due 
 to I/O bottlenecks caused by client operations and background compaction operations. More precisely, L0 is full and immutable memtables can't be flushed blocking writes. L0 is perhaps full
 when lower layers are busy compacting (L0 -> L1 compaction is too slow) and taking over I/O bandwidth. Basically, no coordination or priority between levels compacting.
 In RocksDB you can provid compaction bandwidth limit. SILK I/O scheduler prioritizes lower level flush (so L0 is never full), preempt high level compactions (so bandwidth exists 
 for compaction/flash on lower levels), and allocates I/O opportunistically for higher levels (so compactions don't fall behind). sILK monitors client I/O bandwidth and triggers compactions
 when load is low but continues to prioritize flush and L0 -> L1 compactions (RocksDB provides number of background threads you can set, so reduce it once client loads picks). Even with 0 client
-load it is not a good idea to have lot of parallel compactions (Options::max_background_jobs) as finishing the job will be slower (SILK sets it to max 4).
+load it is not a good idea to have lot of parallel compactions (Options::max_background_jobs) as finishing the overall job will be slower (SILK sets it to max 4).
 You could potentially engineer a client load that avoid SILK opportunistic compactions making it hard for LSM to catch up and do it long enough you will see spikes.
 RocksDB also allows compaction priority - https://rocksdb.org/blog/2016/01/29/compaction_pri.html
 > Maybe make use of SSD parallel I/O to amortize compaction costs at time T, so that we can make room for client flush? but this still could block memTable -> L0 write as compaction is not ordered.
@@ -90,7 +90,9 @@ Operations are buffered in internal nodes, they are initially added to root node
 more compactions and reduce layers/runs per layer and when you want to reduce write amp delay compactions as much as possible (But don't let compactions stale). 
 > Dynamically Modify level merge multiplier bigger for reads and smaller for writes ^  
 
-> **_(LSM-based Storage Techniques: A Survey)[https://arxiv.org/abs/1812.07527_**]**_  
+***
+> **_[LSM-based Storage Techniques: A Survey](https://arxiv.org/abs/1812.07527_**)**_  
+***
 
 Does NVDIMM also have flash like GC/page granularity behavior?
 
