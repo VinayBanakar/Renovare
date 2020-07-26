@@ -68,4 +68,4 @@ When a page is accessed the ML model will decide whether page should be migrated
 ***
 
 
-**_How would L1/L2/L3 behave with hybrid memory? would MESI work? How will this look for NUMA nodes?_**  
+**_Any implications of NVM on NUMA?_** 
