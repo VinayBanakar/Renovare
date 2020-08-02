@@ -49,6 +49,9 @@ Idea: Periodically checkpoint whole system state; recover to previous checkpoint
 >> **https://github.com/CMU-SAFARI/ramulator**
 
 ***
+
+**A Survey on Tiering and Caching in High-Performance Storage Systems** - https://arxiv.org/pdf/1904.11560.pdf
+
 >**Goal**: Provide large memory capacity while providing least latency by placing pages in fast memory using a statistical model that learns from access patterns.  
 >**Assumptions**: NVM page size = DRAM page size and NVM row buffer = DRAM row buffer and NVM row hit/miss latency ~ DRAM row hit/miss latency (hit < miss). Memory address space partitioned between DRAM and NVM but writes are only made to DRAM (to maintain latency and NVM's endurance and energy consumption) and lookups are of the order L1/L2->L3->DRAM->NVM (Which means all metadata is stored in DRAM).    
 

@@ -40,4 +40,20 @@ A quick summary: http://codecapsule.com/2014/02/12/coding-for-ssds-part-6-a-summ
 [1] ./Quantum-Tunneling-SSDs.md
 
 ***
+
+
+**F2FS:** https://www.usenix.org/system/files/conference/fast15/fast15-paper-lee.pdf & https://www.kernel.org/doc/html/v5.7/filesystems/f2fs.html  
+
+btrfs is a flash friendly file system -  
+https://www.reddit.com/r/btrfs/comments/ckqt51/how_flashfriendly_is_btrfs/
+
+
+[Accelerating RocksDB with Zoned namespaces](https://www.youtube.com/watch?v=FAvoZ2rHzjA) https://imgur.com/a/gWnTdUH  
+Smart data placement: Only ~1X write amplifications (compared to 3-6X)  
+No on-drive garbage collection: 20% increase in capacity and 20% TCO reduction (increases lifetime/writes significantly). Possibly 4x performance throughput increase since 4x lower write amplifications compared to traditional SSDs.
+
+
+Optane SSD performance:  
+https://www.usenix.org/system/files/hotstorage19-paper-wu-kan.pdf  
+
 >> Unless transfer rates grow much faster than storage rates, FedEx will always be faster to send large amounts of data than internet, but this seems unlikely, since storage and transfer are fundamentally linked. High throughput but low latency https://what-if.xkcd.com/31/
