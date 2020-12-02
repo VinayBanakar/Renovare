@@ -4,3 +4,4 @@
 4. Deep learning is essentially System 1 (fast, unconscious, automatic), as it does not reason or does that deep thinking a human system 2 (slow, conscious, effortful) does. - Daniel Kahneman
 5. Reasons have little to do with what you believe, reasons are stories that comes to your minds when you have to explain yourself. Similarly, AI doesn't need to explain itself, it just needs to tell a convincing (happens usually when some elements of truth does exit) story. - Daniel Kahneman
 6. Everyone knows that debugging is twice as hard as writing a program in the first place. So if you're as clever as you can be when you write it, how will you ever debug it? - Brian Kernighan
+7. Matter tells spacetime how to curve, spacetime tells matter how to move. - John Wheeler
