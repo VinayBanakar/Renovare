@@ -49,6 +49,7 @@ https://software.intel.com/content/www/us/en/develop/articles/disclosure-of-hw-p
 https://stackoverflow.com/a/787758/11338006 enable/dissable h/w cache prefetch. Here likely you will need to use 0x1a4 offset
 intel msr tools https://github.com/intel/msr-tools.git
 ```bash
+modprobe msr
 ./rdmsr 0x1a4 #Should return 0 - All prefetching enabled
 ./wrmsr -a 0x1a4 0xf
 ./rdmsr 0x1a4 #all disabled
